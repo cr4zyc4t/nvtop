@@ -1091,7 +1091,17 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
 
     // FAN
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_speed)) {
-      if (any_device_has_nvlink_active) {
+      const unsigned int fan_count = GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_speeds)
+                                         ? device->dynamic_info.fan_speed_count
+                                         : 0;
+      if (fan_count == 2 && !any_device_has_nvlink_active && device->dynamic_info.fan_speeds[0] <= 99 &&
+          device->dynamic_info.fan_speeds[1] <= 99) {
+        // Two fan sockets: show both speeds ("FAN 50%/50%" is 11 columns,
+        // the width already reserved for the padded single-fan field).
+        mvwprintw(dev->fan_speed, 0, 0, "FAN %2u%%/%2u%%", device->dynamic_info.fan_speeds[0],
+                  device->dynamic_info.fan_speeds[1]);
+        mvwchgat(dev->fan_speed, 0, 0, 3, 0, cyan_color, NULL);
+      } else if (any_device_has_nvlink_active) {
         mvwprintw(dev->fan_speed, 0, 0, "FAN %3u%%",
                   device->dynamic_info.fan_speed > 100 ? 100 : device->dynamic_info.fan_speed);
         mvwchgat(dev->fan_speed, 0, 0, 3, 0, cyan_color, NULL);
@@ -2937,11 +2947,22 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
     else
       printf("%s\"temp_shutdown_threshold\": null,\n", indent_level_four);
 
-    // Fan speed
-    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_speed))
-      printf("%s\"%s\": \"%u%%\",\n", indent_level_four, fan_field,
-             device->dynamic_info.fan_speed > 100 ? 100 : device->dynamic_info.fan_speed);
-    else if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_rpm))
+    // Fan speed. When the device reports individual fan speeds for several
+    // fan sockets, list them all, keeping the same "value%" string form.
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_speed)) {
+      if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_speeds) && device->dynamic_info.fan_speed_count > 1) {
+        printf("%s\"%s\": \"", indent_level_four, fan_field);
+        for (unsigned i = 0; i < device->dynamic_info.fan_speed_count; ++i) {
+          if (i > 0)
+            printf(" / ");
+          printf("%u%%", device->dynamic_info.fan_speeds[i] > 100 ? 100 : device->dynamic_info.fan_speeds[i]);
+        }
+        printf("\",\n");
+      } else {
+        printf("%s\"%s\": \"%u%%\",\n", indent_level_four, fan_field,
+               device->dynamic_info.fan_speed > 100 ? 100 : device->dynamic_info.fan_speed);
+      }
+    } else if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_rpm))
       printf("%s\"%s\": \"%uRPM\",\n", indent_level_four, fan_field,
              device->dynamic_info.fan_rpm > 9999 ? 9999 : device->dynamic_info.fan_rpm);
     else if (device->static_info.integrated_graphics)

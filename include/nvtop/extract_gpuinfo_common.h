@@ -131,6 +131,7 @@ enum gpuinfo_dynamic_info_valid {
   gpuinfo_ecc_corrected_valid,
   gpuinfo_ecc_uncorrected_valid,
   gpuinfo_extra_clocks_valid,
+  gpuinfo_fan_speeds_valid,
   gpuinfo_dynamic_info_count,
 };
 
@@ -138,6 +139,9 @@ enum gpuinfo_dynamic_info_valid {
 // have no vendor neutral meaning and are therefore carried with their name.
 #define MAX_EXTRA_CLOCK_DOMAINS 8
 #define EXTRA_CLOCK_NAME_LEN 8
+
+// Some GPUs expose several fan sockets and report a speed for each of them.
+#define MAX_GPU_FANS 4
 
 struct gpuinfo_extra_clock {
   char name[EXTRA_CLOCK_NAME_LEN]; // Domain name as the vendor calls it
@@ -166,8 +170,10 @@ struct gpuinfo_dynamic_info {
   unsigned int pcie_link_width;       // PCIe line width used
   unsigned int pcie_rx;               // PCIe throughput in KB/s
   unsigned int pcie_tx;               // PCIe throughput in KB/s
-  unsigned int fan_speed;             // Fan speed percentage
+  unsigned int fan_speed;             // Fan speed percentage (maximum across fans when several are reported)
   unsigned int fan_rpm;               // Fan speed RPM
+  unsigned int fan_speed_count;       // Number of populated entries in fan_speeds
+  unsigned int fan_speeds[MAX_GPU_FANS]; // Per-fan speed percentages, one per fan socket
   unsigned int gpu_temp;              // GPU temperature °Celsius
   unsigned int power_draw;            // Power usage in milliwatts
   unsigned int power_draw_max;        // Max power usage in milliwatts
